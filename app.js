@@ -106,7 +106,6 @@ function populateCategoryFilter() {
   select.innerHTML = '<option value="">Tutte</option>';
   if (!vaultData) return;
 
-  // Categoria "Utilizzati di recente" in cima
   if (vaultData.RecentlyUsedEntryIds && vaultData.RecentlyUsedEntryIds.length > 0) {
     const recentOpt = document.createElement('option');
     recentOpt.value = "Utilizzati di recente";
@@ -131,7 +130,10 @@ function populateCategoryFilter() {
 
   if (vaultData.Entries) {
     vaultData.Entries.forEach(e => {
-      if (e.Category && !deleted.includes(e.Category.toLowerCase())) cats.add(e.Category);
+      // Ignora le categorie delle password nel cestino
+      if (e.Category && !e.IsDeleted && !deleted.includes(e.Category.toLowerCase())) {
+        cats.add(e.Category);
+      }
     });
   }
 
@@ -149,12 +151,19 @@ function applyFilter() {
   const cat = document.getElementById('category-filter').value;
 
   filteredEntries = vaultData.Entries.filter(e => {
+    // 0. IGNORA LE PASSWORD NEL CESTINO
+    if (e.IsDeleted === true) return false;
+
+    // 1. Filtro Categoria
     if (cat === "Utilizzati di recente") {
       if (!vaultData.RecentlyUsedEntryIds || !vaultData.RecentlyUsedEntryIds.includes(e.Id)) return false;
-    } else if (cat && e.Category !== cat) {
-      return false;
+    } else if (cat) {
+      const c1 = (e.Category || '').trim().toLowerCase();
+      const c2 = cat.trim().toLowerCase();
+      if (c1 !== c2) return false;
     }
 
+    // 2. Filtro Ricerca
     if (!q) return true;
     return (e.Title && e.Title.toLowerCase().includes(q)) || 
            (e.Username && e.Username.toLowerCase().includes(q)) ||
@@ -201,7 +210,6 @@ function getCategoryIcon(entry) {
   const c = entry.Category ? entry.Category.trim() : '';
   if (!c) return '🏷️';
   
-  // Icone personalizzate del file vault
   if (vaultData && vaultData.CategoryIcons) {
     const customKey = Object.keys(vaultData.CategoryIcons).find(k => k.toLowerCase() === c.toLowerCase());
     if (customKey && vaultData.CategoryIcons[customKey]) {
@@ -209,7 +217,6 @@ function getCategoryIcon(entry) {
     }
   }
 
-  // Icone base identiche al PC
   const defaults = {
     'personale': '👤',
     'lavoro': '💼',
@@ -223,7 +230,6 @@ function getCategoryIcon(entry) {
   const lowerC = c.toLowerCase();
   if (defaults[lowerC]) return defaults[lowerC];
 
-  // Indovinelli base
   if (lowerC.includes('banca') || lowerC.includes('finanz')) return '🏦';
   if (lowerC.includes('email') || lowerC.includes('posta')) return '📧';
   if (lowerC.includes('social')) return '💬';
@@ -386,7 +392,6 @@ window.toggleDetailPw = function() {
 /* ── EVENT LISTENERS ── */
 document.addEventListener('DOMContentLoaded', () => {
 
-  // Pulsante File (Fix per PC / iOS) - Clic singolo lato JS
   document.getElementById('btn-pick-file').addEventListener('click', () => {
     document.getElementById('file-input').click();
   });
@@ -396,7 +401,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const file = e.target.files[0];
     if (!file) return;
     
-    // NESSUN CONTROLLO ESTENSIONE
     selectedFile = file;
     document.getElementById('file-name-display').textContent = `📄 ${file.name}`;
     checkUnlockReady();
