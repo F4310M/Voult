@@ -9,7 +9,6 @@
   <meta name="apple-mobile-web-app-title" content="Password Vault">
   <meta name="theme-color" content="#0d0d0f">
   
-  <!-- FIX SICUREZZA: Sblocca i clic (unsafe-inline) -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none';">
   
   <title>Password Vault</title>
@@ -17,16 +16,13 @@
   <link rel="apple-touch-icon" href="icon-192.svg">
   <link rel="stylesheet" href="styles.css">
   
-  <!-- FIX VISIVO: Nasconde i caricamenti all'avvio -->
   <style>
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-  <!-- ══════════════════════════════════════════════════
-       SCREEN: UNLOCK
-  ══════════════════════════════════════════════════ -->
+  <!-- SCHERMATA SBLOCCO -->
   <div id="screen-unlock" class="screen active">
     <div class="unlock-container">
       <div class="app-icon">🔐</div>
@@ -34,30 +30,26 @@
       <p class="app-subtitle">by MF@Software</p>
 
       <div class="card">
-        <!-- File picker -->
+        <!-- Bottone corretto: no doppi clic, no accept -->
         <input type="file" id="file-input" style="display:none">
-        <button class="btn btn-secondary" id="btn-pick-file" onclick="document.getElementById('file-input').click()">
+        <button class="btn btn-secondary" id="btn-pick-file">
           📁 Seleziona file .vault
         </button>
         <div class="file-name muted" id="file-name-display">Nessun file selezionato</div>
 
-        <!-- Password -->
         <div class="input-group">
           <input type="password" id="master-password" class="input" placeholder="Master Password"
                  autocomplete="current-password" autocorrect="off" autocapitalize="none" spellcheck="false">
           <button class="input-toggle" id="btn-toggle-password" aria-label="Mostra password">👁</button>
         </div>
 
-        <!-- Unlock button -->
         <button class="btn btn-primary" id="btn-unlock" disabled>
           🔓 Sblocca Vault
         </button>
 
-        <!-- Error -->
         <div class="error-msg hidden" id="unlock-error"></div>
       </div>
 
-      <!-- Loading overlay -->
       <div class="loading-overlay hidden" id="loading-overlay">
         <div class="spinner"></div>
         <p class="loading-text">Decifrazione in corso…</p>
@@ -68,9 +60,7 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════
-       SCREEN: VAULT LIST
-  ══════════════════════════════════════════════════ -->
+  <!-- SCHERMATA LISTA PASSWORD -->
   <div id="screen-vault" class="screen hidden">
     <header class="vault-header">
       <div class="header-top">
@@ -88,9 +78,7 @@
 
     <div class="stats-bar" id="stats-bar"></div>
 
-    <main class="entries-list" id="entries-list">
-      <!-- entry cards injected by JS -->
-    </main>
+    <main class="entries-list" id="entries-list"></main>
 
     <div class="empty-state hidden" id="empty-state">
       <div class="empty-icon">🔍</div>
@@ -98,22 +86,15 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════
-       SCREEN: ENTRY DETAIL
-  ══════════════════════════════════════════════════ -->
+  <!-- SCHERMATA DETTAGLIO PASSWORD -->
   <div id="screen-detail" class="screen hidden">
     <header class="detail-header">
       <button class="btn-back" id="btn-back">← Indietro</button>
       <span class="detail-title" id="detail-title-header"></span>
     </header>
-    <main class="detail-content" id="detail-content">
-      <!-- filled by JS -->
-    </main>
+    <main class="detail-content" id="detail-content"></main>
   </div>
 
-  <!-- ══════════════════════════════════════════════════
-       TOAST NOTIFICATION
-  ══════════════════════════════════════════════════ -->
   <div class="toast hidden" id="toast"></div>
 
   <script src="app.js"></script>
