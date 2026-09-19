@@ -100,14 +100,43 @@ function copyToClipboard(text, name) {
   }).catch(() => showToast('❌ Errore copia'));
 }
 
-/* ── VAULT LIST ── */
+/* ── VAULT LIST E FILTRI ── */
 function populateCategoryFilter() {
   const select = document.getElementById('category-filter');
   select.innerHTML = '<option value="">Tutte</option>';
-  if (!vaultData || !vaultData.Entries) return;
+  if (!vaultData) return;
 
-  const categories = [...new Set(vaultData.Entries.map(e => e.Category).filter(c => c))].sort();
-  categories.forEach(c => {
+  // Categoria "Utilizzati di recente" in cima
+  if (vaultData.RecentlyUsedEntryIds && vaultData.RecentlyUsedEntryIds.length > 0) {
+    const recentOpt = document.createElement('option');
+    recentOpt.value = "Utilizzati di recente";
+    recentOpt.textContent = "⏱️ Utilizzati di recente";
+    select.appendChild(recentOpt);
+  }
+
+  const cats = new Set();
+  const hidden = (vaultData.HiddenDefaultCategories || []).map(h => h.toLowerCase());
+  const deleted = (vaultData.DeletedCustomCategories || []).map(d => d.toLowerCase());
+
+  const defaults = ["Personale", "Lavoro", "Finanza & Banche", "Social & Svago", "Shopping & Ecommerce", "Altro"];
+  defaults.forEach(d => {
+    if (!hidden.includes(d.toLowerCase()) && !deleted.includes(d.toLowerCase())) cats.add(d);
+  });
+
+  if (vaultData.CustomCategories) {
+    vaultData.CustomCategories.forEach(c => {
+      if (!deleted.includes(c.toLowerCase())) cats.add(c);
+    });
+  }
+
+  if (vaultData.Entries) {
+    vaultData.Entries.forEach(e => {
+      if (e.Category && !deleted.includes(e.Category.toLowerCase())) cats.add(e.Category);
+    });
+  }
+
+  const sorted = Array.from(cats).sort((a,b) => a.localeCompare(b));
+  sorted.forEach(c => {
     const opt = document.createElement('option');
     opt.value = c; opt.textContent = c;
     select.appendChild(opt);
@@ -120,13 +149,24 @@ function applyFilter() {
   const cat = document.getElementById('category-filter').value;
 
   filteredEntries = vaultData.Entries.filter(e => {
-    if (cat && e.Category !== cat) return false;
+    if (cat === "Utilizzati di recente") {
+      if (!vaultData.RecentlyUsedEntryIds || !vaultData.RecentlyUsedEntryIds.includes(e.Id)) return false;
+    } else if (cat && e.Category !== cat) {
+      return false;
+    }
+
     if (!q) return true;
     return (e.Title && e.Title.toLowerCase().includes(q)) || 
            (e.Username && e.Username.toLowerCase().includes(q)) ||
            (e.Url && e.Url.toLowerCase().includes(q)) ||
            (e.Notes && e.Notes.toLowerCase().includes(q));
   });
+
+  if (cat === "Utilizzati di recente" && vaultData.RecentlyUsedEntryIds) {
+    filteredEntries.sort((a, b) => {
+      return vaultData.RecentlyUsedEntryIds.indexOf(a.Id) - vaultData.RecentlyUsedEntryIds.indexOf(b.Id);
+    });
+  }
 
   document.getElementById('entries-list').innerHTML = generateEntriesHtml(filteredEntries);
   
@@ -158,14 +198,38 @@ function formatDate(isoDate) {
 }
 
 function getCategoryIcon(entry) {
-  const c = entry.Category ? entry.Category.toLowerCase() : '';
-  if (c.includes('banca') || c.includes('finanz')) return '🏦';
-  if (c.includes('email') || c.includes('posta')) return '📧';
-  if (c.includes('social')) return '💬';
-  if (c.includes('lavoro') || c.includes('work')) return '💼';
-  if (c.includes('shop') || c.includes('acquisti')) return '🛒';
-  if (c.includes('svago') || c.includes('gioc')) return '🎮';
-  return '🔑';
+  const c = entry.Category ? entry.Category.trim() : '';
+  if (!c) return '🏷️';
+  
+  // Icone personalizzate del file vault
+  if (vaultData && vaultData.CategoryIcons) {
+    const customKey = Object.keys(vaultData.CategoryIcons).find(k => k.toLowerCase() === c.toLowerCase());
+    if (customKey && vaultData.CategoryIcons[customKey]) {
+      return vaultData.CategoryIcons[customKey];
+    }
+  }
+
+  // Icone base identiche al PC
+  const defaults = {
+    'personale': '👤',
+    'lavoro': '💼',
+    'finanza & banche': '🏦',
+    'social & svago': '🎮',
+    'shopping & ecommerce': '🛒',
+    'importati da csv': '📥',
+    'altro': '🏷️'
+  };
+  
+  const lowerC = c.toLowerCase();
+  if (defaults[lowerC]) return defaults[lowerC];
+
+  // Indovinelli base
+  if (lowerC.includes('banca') || lowerC.includes('finanz')) return '🏦';
+  if (lowerC.includes('email') || lowerC.includes('posta')) return '📧';
+  if (lowerC.includes('social')) return '💬';
+  if (lowerC.includes('shop') || lowerC.includes('acquisti')) return '🛒';
+  
+  return '🏷️';
 }
 
 function generateEntriesHtml(entries) {
@@ -322,7 +386,7 @@ window.toggleDetailPw = function() {
 /* ── EVENT LISTENERS ── */
 document.addEventListener('DOMContentLoaded', () => {
 
-  // Pulsante File (Fix per PC / iOS)
+  // Pulsante File (Fix per PC / iOS) - Clic singolo lato JS
   document.getElementById('btn-pick-file').addEventListener('click', () => {
     document.getElementById('file-input').click();
   });
@@ -332,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const file = e.target.files[0];
     if (!file) return;
     
-    // NESSUN CONTROLLO ESTENSIONE: IOS RIMUOVE '.VAULT' DAI FILE CLOUD
+    // NESSUN CONTROLLO ESTENSIONE
     selectedFile = file;
     document.getElementById('file-name-display').textContent = `📄 ${file.name}`;
     checkUnlockReady();
