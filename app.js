@@ -130,7 +130,6 @@ function populateCategoryFilter() {
 
   if (vaultData.Entries) {
     vaultData.Entries.forEach(e => {
-      // Ignora le categorie delle password nel cestino
       if (e.Category && !e.IsDeleted && !deleted.includes(e.Category.toLowerCase())) {
         cats.add(e.Category);
       }
@@ -171,9 +170,25 @@ function applyFilter() {
            (e.Notes && e.Notes.toLowerCase().includes(q));
   });
 
+  // 3. ORDINAMENTO (Scadenza e Alfabetico)
   if (cat === "Utilizzati di recente" && vaultData.RecentlyUsedEntryIds) {
+    // Ordine cronologico di utilizzo
     filteredEntries.sort((a, b) => {
       return vaultData.RecentlyUsedEntryIds.indexOf(a.Id) - vaultData.RecentlyUsedEntryIds.indexOf(b.Id);
+    });
+  } else {
+    // Ordine per scadenza (come PC)
+    filteredEntries.sort((a, b) => {
+      if (a.ExpiryDate && b.ExpiryDate) {
+        return new Date(a.ExpiryDate).getTime() - new Date(b.ExpiryDate).getTime();
+      }
+      if (a.ExpiryDate && !b.ExpiryDate) return -1;
+      if (!a.ExpiryDate && b.ExpiryDate) return 1;
+      
+      // Nessuna scadenza: ordine alfabetico
+      const tA = (a.Title || '').toLowerCase();
+      const tB = (b.Title || '').toLowerCase();
+      return tA.localeCompare(tB);
     });
   }
 
