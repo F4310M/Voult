@@ -445,7 +445,12 @@ function toggleDetailPw() {
 ═══════════════════════════════════════════════════════════════ */
 
 document.addEventListener('DOMContentLoaded', () => {
-
+   
+// ── Pulsante seleziona file ──
+  document.getElementById('btn-pick-file').addEventListener('click', () => {
+    document.getElementById('file-input').click();
+  });
+   
   // ── File picker ─────────────────────────────────────────────
   const fileInput = document.getElementById('file-input');
   fileInput.addEventListener('change', (e) => {
