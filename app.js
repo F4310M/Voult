@@ -172,12 +172,10 @@ function applyFilter() {
 
   // 3. ORDINAMENTO (Scadenza e Alfabetico)
   if (cat === "Utilizzati di recente" && vaultData.RecentlyUsedEntryIds) {
-    // Ordine cronologico di utilizzo
     filteredEntries.sort((a, b) => {
       return vaultData.RecentlyUsedEntryIds.indexOf(a.Id) - vaultData.RecentlyUsedEntryIds.indexOf(b.Id);
     });
   } else {
-    // Ordine per scadenza (come PC)
     filteredEntries.sort((a, b) => {
       if (a.ExpiryDate && b.ExpiryDate) {
         return new Date(a.ExpiryDate).getTime() - new Date(b.ExpiryDate).getTime();
@@ -185,7 +183,6 @@ function applyFilter() {
       if (a.ExpiryDate && !b.ExpiryDate) return -1;
       if (!a.ExpiryDate && b.ExpiryDate) return 1;
       
-      // Nessuna scadenza: ordine alfabetico
       const tA = (a.Title || '').toLowerCase();
       const tB = (b.Title || '').toLowerCase();
       return tA.localeCompare(tB);
@@ -262,13 +259,20 @@ function generateEntriesHtml(entries) {
     let badgesHtml = '';
     if (entry.Category) badgesHtml += `<span class="badge badge-cat">${escHtml(entry.Category)}</span>`;
     
-    const expired = isExpired(entry);
-    const soon = isExpiringSoon(entry);
-    if (expired) {
-      badgesHtml += `<span class="badge badge-expiry">🔴 Scaduta</span>`;
-    } else if (soon) {
-      const d = daysUntil(entry.ExpiryDate);
-      badgesHtml += `<span class="badge badge-soon">⚠️ ${d}gg</span>`;
+    // Mostra la data di scadenza nei badge
+    if (entry.ExpiryDate) {
+      const dateStr = formatDate(entry.ExpiryDate);
+      const expired = isExpired(entry);
+      const soon = isExpiringSoon(entry);
+      
+      if (expired) {
+        badgesHtml += `<span class="badge badge-expiry">🔴 Scade il ${dateStr}</span>`;
+      } else if (soon) {
+        const d = daysUntil(entry.ExpiryDate);
+        badgesHtml += `<span class="badge badge-soon">⚠️ Scade il ${dateStr} (-${d}gg)</span>`;
+      } else {
+        badgesHtml += `<span class="badge" style="background:#2c2c2e; color:#a1a1a6;">⏳ Scade il ${dateStr}</span>`;
+      }
     }
 
     return `
