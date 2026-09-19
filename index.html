@@ -9,13 +9,18 @@
   <meta name="apple-mobile-web-app-title" content="Password Vault">
   <meta name="theme-color" content="#0d0d0f">
   
-  <!-- Content Security Policy con virgolette corrette -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none';">
+  <!-- FIX SICUREZZA: Sblocca i clic (unsafe-inline) -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none';">
   
   <title>Password Vault</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.svg">
   <link rel="stylesheet" href="styles.css">
+  
+  <!-- FIX VISIVO: Nasconde i caricamenti all'avvio -->
+  <style>
+    .hidden { display: none !important; }
+  </style>
 </head>
 <body>
 
