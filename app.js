@@ -8,6 +8,13 @@ let currentEntry = null;
 let selectedFile = null;
 let pwVisible = false;
 let detailPwVisible = false;
+let revealTimer;
+let listScrollTop = 0;
+let unlocking = false;
+function hideDetailPassword() {
+  clearTimeout(revealTimer);
+  if (detailPwVisible) { detailPwVisible = false; if (currentEntry) renderDetail(); }
+}
 
 /* ── CRYPTO ENGINE ── */
 async function decryptVault(buffer, password) {
@@ -59,15 +66,28 @@ async function decryptVault(buffer, password) {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
+  const target = document.getElementById(id);
+  target.classList.remove('screen-enter', 'screen-return');
+  void target.offsetWidth;
+  target.classList.add(id === 'screen-detail' ? 'screen-enter' : 'screen-return');
+  document.getElementById('vault-actions').classList.toggle('hidden', id === 'screen-unlock');
 }
 
 function lockVault() {
+  document.getElementById('link-confirm').close();
+  hideDetailPassword();
   vaultData = null;
   filteredEntries = [];
   currentEntry = null;
   document.getElementById('search-input').value = '';
   document.getElementById('master-password').value = '';
   document.getElementById('entries-list').innerHTML = '';
+  document.getElementById('detail-content').textContent = '';
+  document.getElementById('detail-title-header').textContent = '';
+  document.getElementById('category-filter').innerHTML = '<option value="">Tutte</option>';
+  document.getElementById('master-password').type = 'password';
+  pwVisible = false;
+  checkUnlockReady();
   showScreen('screen-unlock');
 }
 
@@ -85,14 +105,15 @@ function showToast(msg) {
 }
 
 function copyToClipboard(text, name) {
+  if (!vaultData) return;
   if (!navigator.clipboard) {
     const input = document.createElement('textarea');
     input.value = text;
     document.body.appendChild(input);
     input.select();
-    document.execCommand('copy');
+    const copied = document.execCommand('copy');
     document.body.removeChild(input);
-    showToast(`✅ ${name} copiato`);
+    showToast(copied ? `✅ ${name} copiato` : '❌ Copia non disponibile');
     return;
   }
   navigator.clipboard.writeText(text).then(() => {
@@ -100,16 +121,66 @@ function copyToClipboard(text, name) {
   }).catch(() => showToast('❌ Errore copia'));
 }
 
+function entryUrl(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  if (/^[a-z][a-z0-9+.-]*:/i.test(text) && !/^https?:\/\//i.test(text) && !/^[\w.-]+:\d+(?:\/|$)/.test(text)) return '';
+  try {
+    const url = new URL(/^https?:\/\//i.test(text) ? text : 'https://' + text);
+    return ['http:', 'https:'].includes(url.protocol) && url.hostname && !url.username && !url.password ? url.href : '';
+  } catch (_) { return ''; }
+}
+
+window.openEntryUrl = function(idx) {
+  requestEntryLink(filteredEntries[idx]?.Url);
+};
+
+window.requestEntryLink = function(value) {
+  if (!vaultData) return;
+  const url = entryUrl(value);
+  if (!url) return;
+  document.getElementById('link-confirm-url').textContent = url;
+  document.getElementById('link-confirm-yes').href = url;
+  document.getElementById('link-confirm').showModal();
+};
+
+window.openEntryCategory = function(idx) {
+  if (!vaultData) return;
+  const category = (filteredEntries[idx]?.Category || '').trim();
+  if (!category) return;
+  const select = document.getElementById('category-filter');
+  let option = Array.from(select.options).find(o => o.value.trim().toLowerCase() === category.toLowerCase());
+  if (!option) {
+    option = document.createElement('option');
+    option.value = category;
+    const count = vaultData.Entries.filter(e => !e.IsDeleted && (e.Category || '').trim().toLowerCase() === category.toLowerCase()).length;
+    option.textContent = `${getCategoryIcon({Category: category})} ${category} (${count})`;
+    select.appendChild(option);
+  }
+  select.value = option.value;
+  document.getElementById('search-input').value = '';
+  applyFilter();
+  document.getElementById('screen-vault').scrollTop = 0;
+};
+
+window.quickCopy = function(idx, field) {
+  const entry = filteredEntries[idx];
+  if (!vaultData || !entry || !['Username', 'Password'].includes(field)) return;
+  copyToClipboard(entry[field] || '', field === 'Password' ? 'Password' : 'Username');
+};
+
 /* ── VAULT LIST E FILTRI ── */
 function populateCategoryFilter() {
   const select = document.getElementById('category-filter');
   select.innerHTML = '<option value="">Tutte</option>';
   if (!vaultData) return;
 
+  const active = (vaultData.Entries || []).filter(e => !e.IsDeleted);
+  select.options[0].textContent = `🗂️ Tutte (${active.length})`;
   if (vaultData.RecentlyUsedEntryIds && vaultData.RecentlyUsedEntryIds.length > 0) {
     const recentOpt = document.createElement('option');
     recentOpt.value = "Utilizzati di recente";
-    recentOpt.textContent = "⏱️ Utilizzati di recente";
+    recentOpt.textContent = `⏱️ Utilizzati di recente (${active.filter(e => vaultData.RecentlyUsedEntryIds.includes(e.Id)).length})`;
     select.appendChild(recentOpt);
   }
 
@@ -117,7 +188,7 @@ function populateCategoryFilter() {
   if (hasExpiry) {
     const expOpt = document.createElement('option');
     expOpt.value = "Scadenza";
-    expOpt.textContent = "⏰ Scadenze";
+    expOpt.textContent = `⏰ Scadenze (${active.filter(e => e.ExpiryDate).length})`;
     select.appendChild(expOpt);
   }
 
@@ -147,14 +218,17 @@ function populateCategoryFilter() {
   const sorted = Array.from(cats).sort((a,b) => a.localeCompare(b));
   sorted.forEach(c => {
     const opt = document.createElement('option');
-    opt.value = c; opt.textContent = c;
+    const count = active.filter(e => (e.Category || '').trim().toLowerCase() === c.trim().toLowerCase()).length;
+    opt.value = c; opt.textContent = `${getCategoryIcon({ Category: c })} ${c} (${count})`;
     select.appendChild(opt);
   });
 }
 
 function applyFilter() {
+  document.getElementById('clear-search').classList.toggle('hidden', !document.getElementById('search-input').value);
+  document.getElementById('clear-category').classList.toggle('hidden', !document.getElementById('category-filter').value);
   if (!vaultData) return;
-  const q = document.getElementById('search-input').value.toLowerCase();
+  const q = document.getElementById('search-input').value.trim().toLowerCase();
   const cat = document.getElementById('category-filter').value;
 
   filteredEntries = vaultData.Entries.filter(e => {
@@ -263,7 +337,6 @@ function generateEntriesHtml(entries) {
     const icon = getCategoryIcon(entry);
     
     let badgesHtml = '';
-    if (entry.Category) badgesHtml += `<span class="badge badge-cat">${escHtml(entry.Category)}</span>`;
     
     if (entry.ExpiryDate) {
       const dateStr = formatDate(entry.ExpiryDate);
@@ -281,16 +354,43 @@ function generateEntriesHtml(entries) {
     }
 
     return `
-      <div class="entry-card" data-idx="${idx}" onclick="openEntry(${idx})">
-        <div class="entry-icon">${icon}</div>
+      <div class="entry-card" data-idx="${idx}">
+        <div class="entry-heading">
+        <button class="entry-open" aria-label="Apri ${escHtml(title)}" onclick="openEntry(${idx})">
         <div class="entry-info">
-          <div class="entry-title">${escHtml(title)}</div>
-          ${username ? `<div class="entry-username">${escHtml(username)}</div>` : ''}
+          <div class="entry-title">${highlightSearch(title)}</div>
+          ${username ? `<div class="entry-username">${highlightSearch(username)}</div>` : ''}
+          ${document.getElementById('search-input').value.trim() && entry.Url ? `<div class="entry-username">${highlightSearch(entry.Url)}</div>` : ''}
+          ${document.getElementById('search-input').value.trim() && entry.Notes ? `<div class="search-note">${highlightSearch(entry.Notes)}</div>` : ''}
           ${badgesHtml ? `<div class="entry-badges">${badgesHtml}</div>` : ''}
         </div>
-        <div class="entry-arrow">›</div>
+        <span class="entry-chevron" aria-hidden="true">›</span>
+        </button>
+        </div>
+        <div class="entry-bottom">
+        <button class="category-shortcut" onclick="openEntryCategory(${idx})" aria-label="Filtra categoria ${escHtml(entry.Category || '')}" ${(entry.Category || '').trim() ? '' : 'disabled'}><span aria-hidden="true">${escHtml(icon)}</span><span>${escHtml((entry.Category || '').trim() || 'Nessuna categoria')}</span></button>
+        <div class="quick-actions">
+          <button class="btn-field" aria-label="Apri link" title="Apri link" onclick="openEntryUrl(${idx})" ${entryUrl(entry.Url) ? '' : 'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3l-11 11M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/></svg></button>
+          <button class="btn-field" aria-label="Copia utente" title="Copia utente" onclick="quickCopy(${idx}, 'Username')" ${username ? '' : 'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="4"/><path d="M2 21v-3a7 7 0 0 1 12-5M17 12h5v9h-7v-7h2z"/></svg></button>
+          <button class="btn-field" aria-label="Copia password" title="Copia password" onclick="quickCopy(${idx}, 'Password')" ${entry.Password ? '' : 'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="8" r="4"/><path d="m10 11 5 5v3h3v3h4v-4L11 7"/></svg></button>
+        </div>
+        </div>
       </div>`;
   }).join('');
+}
+
+function highlightSearch(value) {
+  const text = String(value || '');
+  const query = document.getElementById('search-input').value.trim();
+  if (!query) return escHtml(text);
+  const lower = text.toLowerCase();
+  const needle = query.toLowerCase();
+  let start = 0, result = '', index;
+  while ((index = lower.indexOf(needle, start)) !== -1) {
+    result += escHtml(text.slice(start, index)) + '<mark>' + escHtml(text.slice(index, index + query.length)) + '</mark>';
+    start = index + query.length;
+  }
+  return result + escHtml(text.slice(start));
 }
 
 function escHtml(str) {
@@ -301,6 +401,8 @@ function escHtml(str) {
 
 /* ── ENTRY DETAIL ── */
 window.openEntry = function(idx) {
+  listScrollTop = document.getElementById('screen-vault').scrollTop;
+  hideDetailPassword();
   currentEntry = filteredEntries[idx];
   detailPwVisible = false;
   renderDetail();
@@ -316,7 +418,7 @@ function renderDetail() {
   const expired = isExpired(e);
   const soon    = isExpiringSoon(e);
 
-  let html = `<div class="detail-icon-row">${icon}</div>`;
+  let html = '';
 
   if (e.Username) {
     html += `
@@ -325,7 +427,7 @@ function renderDetail() {
         <div class="field-row">
           <div class="field-value">${escHtml(e.Username)}</div>
           <div class="field-actions">
-            <button class="btn-field" onclick="copyToClipboard('${escHtml(e.Username).replace(/'/g,"\\'")}','Username')">📋</button>
+            <button class="btn-field" aria-label="Copia username" onclick="copyToClipboard(currentEntry.Username,'Username')">📋</button>
           </div>
         </div>
       </div>`;
@@ -350,14 +452,14 @@ function renderDetail() {
   }
 
   if (e.Url) {
-    const href = e.Url.startsWith('http') ? e.Url : `https://${e.Url}`;
+    const href = entryUrl(e.Url);
     html += `
       <div class="field-card">
         <div class="field-label">URL</div>
         <div class="field-row">
-          <div class="field-value"><a href="${escHtml(href)}" target="_blank" rel="noopener">${escHtml(e.Url)}</a></div>
+          <div class="field-value">${escHtml(e.Url)}</div>
           <div class="field-actions">
-            <button class="btn-field" onclick="window.open('${escHtml(href)}','_blank','noopener')">🌐</button>
+            ${href ? `<button class="btn-field" aria-label="Apri link" onclick="requestEntryLink(currentEntry.Url)">↗</button>` : ''}
           </div>
         </div>
       </div>`;
@@ -409,12 +511,30 @@ function renderDetail() {
 }
 
 window.toggleDetailPw = function() {
+  clearTimeout(revealTimer);
   detailPwVisible = !detailPwVisible;
   renderDetail();
+  if (detailPwVisible) revealTimer = setTimeout(hideDetailPassword, 10000);
 }
 
 /* ── EVENT LISTENERS ── */
 document.addEventListener('DOMContentLoaded', () => {
+  const linkDialog = document.getElementById('link-confirm');
+  document.getElementById('link-confirm-no').addEventListener('click', () => linkDialog.close());
+  document.getElementById('link-confirm-yes').addEventListener('click', () => linkDialog.close());
+  document.getElementById('action-file').addEventListener('click', () => {
+    lockVault();
+    document.getElementById('file-input').value = '';
+    document.getElementById('file-input').click();
+  });
+  document.getElementById('clear-search').addEventListener('click', () => {
+    document.getElementById('search-input').value = ''; applyFilter();
+    document.getElementById('search-input').focus();
+  });
+  document.getElementById('clear-category').addEventListener('click', () => {
+    document.getElementById('category-filter').value = ''; applyFilter();
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) hideDetailPassword(); });
 
   document.getElementById('btn-pick-file').addEventListener('click', () => {
     document.getElementById('file-input').click();
@@ -451,7 +571,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btn-back').addEventListener('click', () => {
+    hideDetailPassword();
     showScreen('screen-vault');
+    document.getElementById('screen-vault').scrollTop = listScrollTop;
   });
 
   document.getElementById('search-input').addEventListener('input', applyFilter);
@@ -469,9 +591,11 @@ function checkUnlockReady() {
 }
 
 window.attemptUnlock = async function() {
+  if (unlocking) return;
   if (!selectedFile) { showToast('⚠️ Seleziona prima il file'); return; }
   const pw = document.getElementById('master-password').value;
   if (!pw) { showToast('⚠️ Inserisci la master password'); return; }
+  unlocking = true;
 
   const overlay = document.getElementById('loading-overlay');
   const errEl   = document.getElementById('unlock-error');
@@ -480,7 +604,10 @@ window.attemptUnlock = async function() {
 
   try {
     const buffer = await selectedFile.arrayBuffer();
-    vaultData = await decryptVault(buffer, pw);
+    const opened = await decryptVault(buffer, pw);
+    if (!opened || !Array.isArray(opened.Entries)) throw new Error('Archivio non valido.');
+    vaultData = opened;
+    document.getElementById('local-file-status').textContent = selectedFile.name;
 
     overlay.classList.add('hidden');
     document.getElementById('master-password').value = '';
@@ -495,5 +622,7 @@ window.attemptUnlock = async function() {
     errEl.classList.remove('hidden');
     document.getElementById('master-password').value = '';
     document.getElementById('master-password').focus();
+  } finally {
+    unlocking = false;
   }
 }

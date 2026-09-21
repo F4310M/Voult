@@ -13,8 +13,8 @@
   
   <title>Password Vault</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icon-192.svg">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="apple-touch-icon" sizes="300x300" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css?v=local3">
   
   <style>
     .hidden { display: none !important; }
@@ -27,7 +27,7 @@
     <div class="unlock-container">
       <div class="app-icon">🔐</div>
       <h1 class="app-title">Password Vault</h1>
-      <p class="app-subtitle">by MF@Software</p>
+      <p class="app-subtitle">Il tuo archivio, sul tuo dispositivo.</p>
 
       <div class="card">
         <!-- Bottone corretto: no doppi clic, no accept -->
@@ -38,6 +38,7 @@
         <div class="file-name muted" id="file-name-display">Nessun file selezionato</div>
 
         <div class="input-group">
+          <label for="master-password">Master Password</label>
           <input type="password" id="master-password" class="input" placeholder="Master Password"
                  autocomplete="current-password" autocorrect="off" autocapitalize="none" spellcheck="false">
           <button class="input-toggle" id="btn-toggle-password" aria-label="Mostra password">👁</button>
@@ -68,11 +69,17 @@
         <button class="btn-icon" id="btn-lock" title="Blocca vault" aria-label="Blocca vault">🔒</button>
       </div>
       <div class="search-row">
+        <div class="filter-control">
         <input type="search" id="search-input" class="search-input" placeholder="🔍 Cerca…"
-               autocorrect="off" autocapitalize="none" spellcheck="false">
+               aria-label="Cerca credenziali" autocorrect="off" autocapitalize="none" spellcheck="false">
+        <button id="clear-search" class="clear-filter hidden" aria-label="Cancella ricerca">×</button>
+        </div>
+        <div class="filter-control">
         <select id="category-filter" class="category-filter">
           <option value="">Tutte</option>
         </select>
+        <button id="clear-category" class="clear-filter hidden" aria-label="Rimuovi filtro categoria">×</button>
+        </div>
       </div>
     </header>
 
@@ -89,14 +96,24 @@
   <!-- SCHERMATA DETTAGLIO PASSWORD -->
   <div id="screen-detail" class="screen hidden">
     <header class="detail-header">
-      <button class="btn-back" id="btn-back">← Indietro</button>
-      <span class="detail-title" id="detail-title-header"></span>
+      <button class="btn-back detail-back" id="btn-back" aria-label="Torna all’elenco"><span class="arrow-icon back-arrow" aria-hidden="true">➜</span><span class="detail-title" id="detail-title-header"></span></button>
     </header>
     <main class="detail-content" id="detail-content"></main>
   </div>
 
-  <div class="toast hidden" id="toast"></div>
+  <nav id="vault-actions" class="vault-actions hidden" aria-label="Archivio locale">
+    <button id="action-file"><span>↻ Cambia file vault</span><small id="local-file-status"></small></button>
+  </nav>
+  <div class="toast hidden" id="toast" role="status"></div>
 
-  <script src="app.js"></script>
+  <dialog id="link-confirm" aria-labelledby="link-confirm-title">
+    <h2 id="link-confirm-title">Aprire questo URL?</h2>
+    <p id="link-confirm-url"></p>
+    <div class="link-confirm-actions">
+      <button id="link-confirm-no" autofocus>No</button>
+      <a id="link-confirm-yes" target="_blank" rel="noopener noreferrer">Sì</a>
+    </div>
+  </dialog>
+  <script src="app.js?v=local3"></script>
 </body>
 </html>
