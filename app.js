@@ -131,6 +131,29 @@ function entryUrl(value) {
   } catch (_) { return ''; }
 }
 
+function siteFaviconUrl(value) {
+  const url = entryUrl(value);
+  if (!url) return '';
+  try {
+    return new URL('/favicon.ico', url).href;
+  } catch (_) { return ''; }
+}
+
+function siteIconHtml(entry, idx) {
+  const url = entryUrl(entry.Url);
+  const favicon = siteFaviconUrl(entry.Url);
+  const title = entry.Title || 'sito';
+  const label = url ? `Apri il sito ${title}` : `Nessun sito disponibile per ${title}`;
+  const image = favicon
+    ? `<img src="${escHtml(favicon)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`
+    : '';
+
+  return `<button class="site-icon-button" type="button" aria-label="${escHtml(label)}" title="${escHtml(label)}" onclick="openEntryUrl(${idx})" ${url ? '' : 'disabled'}>
+    <span class="site-icon-fallback" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.4 3 14.6 0 18M12 3c-3 3.4-3 14.6 0 18"/></svg></span>
+    ${image}
+  </button>`;
+}
+
 window.openEntryUrl = function(idx) {
   requestEntryLink(filteredEntries[idx]?.Url);
 };
@@ -356,6 +379,7 @@ function generateEntriesHtml(entries) {
     return `
       <div class="entry-card" data-idx="${idx}">
         <div class="entry-heading">
+        ${siteIconHtml(entry, idx)}
         <button class="entry-open" aria-label="Apri ${escHtml(title)}" onclick="openEntry(${idx})">
         <div class="entry-info">
           <div class="entry-title">${highlightSearch(title)}</div>

@@ -1,11 +1,11 @@
 /* Password Vault PWA — Service Worker
    Cache-first per uso offline su iPhone */
 
-const CACHE_NAME = 'pv-vault-local-v3';
+const CACHE_NAME = 'pv-vault-local-v4';
 const ASSETS = [
   './index.html',
-  './app.js?v=local3',
-  './styles.css?v=local3',
+  './app.js?v=local4',
+  './styles.css?v=local4',
   './apple-touch-icon.png',
   './manifest.json',
   './icon-192.svg',
@@ -29,7 +29,8 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Blocca qualsiasi richiesta di rete esterna (sicurezza extra)
+  // Le richieste esterne non entrano nella cache del vault. Gli eventuali favicon
+  // vengono richiesti direttamente al sito salvato e senza passare da servizi terzi.
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 

@@ -61,8 +61,9 @@ L'icona 🔐 appare sulla schermata Home come una vera app.
 | Crittografia | AES-256-GCM identica all'app desktop |
 | PBKDF2 | 600.000 iterazioni HMAC-SHA256 |
 | Decifrazione | 100% locale nel browser, nessuna rete |
-| Service Worker | Blocca tutte le richieste esterne |
-| CSP Header | `connect-src 'none'` — zero connessioni |
+| Service Worker | Memorizza solo risorse appartenenti alla WebApp; nessun contenuto esterno entra nella cache del vault |
+| Icone dei siti | Richieste direttamente a `/favicon.ico` del dominio salvato, senza referrer e senza servizi intermediari |
+| CSP Header | `connect-src 'none'`; le sole immagini esterne consentite sono le icone dei siti |
 | Master password | Mai inviata, mai salvata |
 
 ## ⚠️ Limitazioni
