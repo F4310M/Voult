@@ -1,7 +1,7 @@
 {
   "name": "Password Vault",
   "short_name": "PV Vault",
-  "description": "Gestore di password cifrato AES-256 — by MF@Software",
+  "description": "Gestore di password cifrato AES-256 — by MFSOFT",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",

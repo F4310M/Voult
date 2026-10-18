@@ -1,11 +1,12 @@
 /* Password Vault PWA — Service Worker
    Cache-first per uso offline su iPhone */
 
-const CACHE_NAME = 'pv-vault-local-v4';
+const CACHE_NAME = 'pv-vault-local-v6';
 const ASSETS = [
   './index.html',
-  './app.js?v=local4',
-  './styles.css?v=local4',
+  './app.js?v=20261018-restyle',
+  './styles.css?v=20261018-restyle',
+  './theme.css?v=20261018-restyle',
   './apple-touch-icon.png',
   './manifest.json',
   './icon-192.svg',
