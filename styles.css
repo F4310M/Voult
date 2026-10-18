@@ -474,6 +474,7 @@ html, body {
   transition: opacity .3s;
 }
 .toast.hidden { display: none; }
+.toast-icon { width: 18px; height: 18px; fill: var(--warning, #F59E0B); vertical-align: -4px; margin-right: 8px; flex: none; }
 .toast.fade-out { opacity: 0; }
 
 /* ── Scrollbar ── */
@@ -605,3 +606,7 @@ mark { background: #e8c35b; color: #19160a; border-radius: 3px; padding: 0 1px; 
 .link-confirm-actions { display: flex; gap: 12px; }
 .link-confirm-actions button, .link-confirm-actions a { display: flex; align-items: center; justify-content: center; flex: 1; min-height: 48px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); text-decoration: none; font: inherit; }
 #link-confirm-yes { background: var(--accent); color: white; }
+
+/* Voci senza URL: il pulsante resta cliccabile (mostra l'avviso) ma appare attenuato */
+.site-icon-button[data-no-link] { opacity: .72; }
+.quick-actions .btn-field[data-no-link] { opacity: .35; }

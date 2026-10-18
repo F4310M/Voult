@@ -139,16 +139,45 @@ function siteFaviconUrl(value) {
   } catch (_) { return ''; }
 }
 
+/* ── Avviso "nessun link" (tradotto in base alla lingua del dispositivo) ── */
+const NO_LINK_TEXT = {
+  it: 'Nessun link associato a questa password',
+  en: 'No link associated with this password',
+  de: 'Kein Link mit diesem Passwort verknüpft',
+  es: 'No hay ningún enlace asociado a esta contraseña',
+  fr: 'Aucun lien associé à ce mot de passe'
+};
+function noLinkText() {
+  const langs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'it']);
+  for (const l of langs) {
+    const code = String(l || '').slice(0, 2).toLowerCase();
+    if (NO_LINK_TEXT[code]) return NO_LINK_TEXT[code];
+  }
+  return NO_LINK_TEXT.it;
+}
+function showNoLinkToast() {
+  const t = document.getElementById('toast');
+  // Icona "link interrotto" (Material Design link_off, Apache 2.0) + testo
+  t.innerHTML = '<svg class="toast-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 7h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1 0 1.43-.98 2.63-2.31 2.98l1.46 1.46C20.88 15.61 22 13.95 22 12c0-2.76-2.24-5-5-5zm-1 4h-2.19l2 2H16zM2 4.27l3.11 3.11C3.29 8.12 2 9.91 2 12c0 2.76 2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1 0-1.59 1.21-2.9 2.76-3.07L8.73 11H8v2h2.73L13 15.27V17h1.73l4.01 4L20 19.74 3.27 3 2 4.27z"/></svg><span></span>';
+  t.querySelector('span').textContent = noLinkText();
+  t.classList.remove('hidden', 'fade-out');
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    t.classList.add('fade-out');
+    setTimeout(() => t.classList.add('hidden'), 300);
+  }, 2500);
+}
+
 function siteIconHtml(entry, idx) {
   const url = entryUrl(entry.Url);
   const favicon = siteFaviconUrl(entry.Url);
   const title = entry.Title || 'sito';
-  const label = url ? `Apri il sito ${title}` : `Nessun sito disponibile per ${title}`;
+  const label = url ? `Apri il sito ${title}` : noLinkText();
   const image = favicon
     ? `<img src="${escHtml(favicon)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`
     : '';
 
-  return `<button class="site-icon-button" type="button" aria-label="${escHtml(label)}" title="${escHtml(label)}" onclick="openEntryUrl(${idx})" ${url ? '' : 'disabled'}>
+  return `<button class="site-icon-button" type="button" aria-label="${escHtml(label)}" title="${escHtml(label)}" onclick="openEntryUrl(${idx})"${url ? '' : ' data-no-link="true"'}>
     <span class="site-icon-fallback" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.4 3 14.6 0 18M12 3c-3 3.4-3 14.6 0 18"/></svg></span>
     ${image}
   </button>`;
@@ -161,7 +190,7 @@ window.openEntryUrl = function(idx) {
 window.requestEntryLink = function(value) {
   if (!vaultData) return;
   const url = entryUrl(value);
-  if (!url) return;
+  if (!url) { showNoLinkToast(); return; }
   document.getElementById('link-confirm-url').textContent = url;
   document.getElementById('link-confirm-yes').href = url;
   document.getElementById('link-confirm').showModal();
@@ -367,12 +396,12 @@ function generateEntriesHtml(entries) {
       const soon = isExpiringSoon(entry);
       
       if (expired) {
-        badgesHtml += `<span class="badge badge-expiry">🔴 Scade il ${dateStr}</span>`;
+        badgesHtml += `<span class="badge badge-expiry">Scaduta il ${dateStr}</span>`;
       } else if (soon) {
         const d = daysUntil(entry.ExpiryDate);
-        badgesHtml += `<span class="badge badge-soon">⚠️ Scade il ${dateStr} (-${d}gg)</span>`;
+        badgesHtml += `<span class="badge badge-soon">Scade il ${dateStr} (-${d}gg)</span>`;
       } else {
-        badgesHtml += `<span class="badge" style="background:#2c2c2e; color:#a1a1a6;">⏳ Scade il ${dateStr}</span>`;
+        badgesHtml += `<span class="badge badge-neutral">Scade il ${dateStr}</span>`;
       }
     }
 
@@ -394,7 +423,7 @@ function generateEntriesHtml(entries) {
         <div class="entry-bottom">
         <button class="category-shortcut" onclick="openEntryCategory(${idx})" aria-label="Filtra categoria ${escHtml(entry.Category || '')}" ${(entry.Category || '').trim() ? '' : 'disabled'}><span aria-hidden="true">${escHtml(icon)}</span><span>${escHtml((entry.Category || '').trim() || 'Nessuna categoria')}</span></button>
         <div class="quick-actions">
-          <button class="btn-field" aria-label="Apri link" title="Apri link" onclick="openEntryUrl(${idx})" ${entryUrl(entry.Url) ? '' : 'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3l-11 11M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/></svg></button>
+          <button class="btn-field" aria-label="Apri link" title="Apri link" onclick="openEntryUrl(${idx})"${entryUrl(entry.Url) ? '' : ' data-no-link="true"'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3l-11 11M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/></svg></button>
           <button class="btn-field" aria-label="Copia utente" title="Copia utente" onclick="quickCopy(${idx}, 'Username')" ${username ? '' : 'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="4"/><path d="M2 21v-3a7 7 0 0 1 12-5M17 12h5v9h-7v-7h2z"/></svg></button>
           <button class="btn-field" aria-label="Copia password" title="Copia password" onclick="quickCopy(${idx}, 'Password')" ${entry.Password ? '' : 'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="8" r="4"/><path d="m10 11 5 5v3h3v3h4v-4L11 7"/></svg></button>
         </div>
@@ -451,7 +480,7 @@ function renderDetail() {
         <div class="field-row">
           <div class="field-value">${escHtml(e.Username)}</div>
           <div class="field-actions">
-            <button class="btn-field" aria-label="Copia username" onclick="copyToClipboard(currentEntry.Username,'Username')">📋</button>
+            <button class="btn-field" aria-label="Copia username" onclick="copyToClipboard(currentEntry.Username,'Username')"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg></button>
           </div>
         </div>
       </div>`;
@@ -461,15 +490,15 @@ function renderDetail() {
     const pwDisplay = detailPwVisible
       ? `<span class="field-value mono">${escHtml(e.Password)}</span>`
       : `<span class="field-value password-hidden">••••••••••••</span>`;
-    const eyeIcon = detailPwVisible ? '🙈' : '👁';
+    const eyeIcon = detailPwVisible ? '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a10 10 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>' : '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
     html += `
       <div class="field-card">
         <div class="field-label">Password</div>
         <div class="field-row">
           ${pwDisplay}
           <div class="field-actions">
-            <button class="btn-field" onclick="toggleDetailPw()">${eyeIcon}</button>
-            <button class="btn-field" onclick="copyToClipboard(currentEntry.Password,'Password')">📋</button>
+            <button class="btn-field" aria-label="${detailPwVisible ? 'Nascondi password' : 'Mostra password'}" onclick="toggleDetailPw()">${eyeIcon}</button>
+            <button class="btn-field" aria-label="Copia password" onclick="copyToClipboard(currentEntry.Password,'Password')"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg></button>
           </div>
         </div>
       </div>`;
@@ -483,7 +512,7 @@ function renderDetail() {
         <div class="field-row">
           <div class="field-value">${escHtml(e.Url)}</div>
           <div class="field-actions">
-            ${href ? `<button class="btn-field" aria-label="Apri link" onclick="requestEntryLink(currentEntry.Url)">↗</button>` : ''}
+            ${href ? `<button class="btn-field" aria-label="Apri link" onclick="requestEntryLink(currentEntry.Url)"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg></button>` : ''}
           </div>
         </div>
       </div>`;
@@ -503,19 +532,19 @@ function renderDetail() {
     const d = daysUntil(e.ExpiryDate);
     let statusClass = 'text-success';
     let statusText  = `Scade tra ${d} giorni`;
-    let statusIcon  = '✅';
+    let statusIcon  = '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>';
     if (expired) {
       statusClass = 'text-danger';
       statusText  = `Scaduta da ${Math.abs(d)} giorni`;
-      statusIcon  = '🔴';
+      statusIcon  = '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>';
     } else if (soon) {
       statusClass = 'text-warning';
       statusText  = d === 0 ? 'Scade oggi!' : `Scade tra ${d} giorni`;
-      statusIcon  = '⚠️';
+      statusIcon  = '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg>';
     }
     html += `
       <div class="expiry-card">
-        <div class="expiry-icon">${statusIcon}</div>
+        <div class="expiry-icon ${statusClass}">${statusIcon}</div>
         <div class="expiry-info">
           <p class="expiry-date">${formatDate(e.ExpiryDate)}</p>
           <p class="${statusClass}">${statusText}</p>
@@ -570,7 +599,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!file) return;
     
     selectedFile = file;
-    document.getElementById('file-name-display').textContent = `📄 ${file.name}`;
+    document.getElementById('file-name-display').textContent = file.name;
     checkUnlockReady();
   });
 
@@ -583,7 +612,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-toggle-password').addEventListener('click', () => {
     pwVisible = !pwVisible;
     pwInput.type = pwVisible ? 'text' : 'password';
-    document.getElementById('btn-toggle-password').textContent = pwVisible ? '🙈' : '👁';
+    document.getElementById('btn-toggle-password').innerHTML = pwVisible ? '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a10 10 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>' : '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
   });
 
   document.getElementById('btn-unlock').addEventListener('click', attemptUnlock);
